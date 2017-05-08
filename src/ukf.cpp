@@ -57,10 +57,24 @@ UKF::UKF() {
   n_sigma = 2 * n_aug_ + 1;
 
   //define spreading parameter
-  double lambda = 3 - n_aug_;
+  lambda_ = 3 - n_aug_;
+
+  //set weights
+  weights_ = VectorXd(n_sigma);
+  weights_(0) = lambda_ / (lambda_ + n_aug_);
+  for (int i = 1; i < n_sigma; ++i) {
+    weights_(i) = 0.5 / (lambda_ + n_aug_);
+  }
 }
 
 UKF::~UKF() {}
+
+double UKF::NormalizeAngle(double const angle) const {
+  double new_angle = angle;
+  while (new_angle > M_PI) new_angle -= 2.*M_PI;
+  while (new_angle <-M_PI) new_angle += 2.*M_PI;
+  return new_angle;
+}
 
 void UKF::GenerateSigmaPoints() {
   //create augmented mean state
@@ -106,9 +120,10 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
  */
 void UKF::Prediction(double delta_t) {
   double delta_t2 = delta_t*delta_t;
-  Xsig_pred_ = MatrixXd(n_x_, n_sigma);
+
   double p_x, p_y, v, psi, psi_dot, a, yawdd;
   VectorXd predicted_sigma = VectorXd(n_x_);
+  Xsig_pred_ = MatrixXd(n_x_, n_sigma);
 
   GenerateSigmaPoints();
 
@@ -140,8 +155,22 @@ void UKF::Prediction(double delta_t) {
     //write predicted sigma points into right column
     Xsig_pred_.col(i) = predicted_sigma;
 
-    // predict the state
-    // predict covariance matrix
+    //predict state mean
+    x_.fill(0.0);
+    for (int i = 0; i < n_sigma; ++i) {
+      x_ += weights_(i)*Xsig_pred_.col(i);
+    }
+    //predict state covariance matrix
+    P_.fill(0.0);
+    for (int i = 0; i < n_sigma; ++i) {
+      // state difference
+      VectorXd x_diff = Xsig_pred_.col(i) - x_;
+      //angle normalization
+      x_diff(3) = NormalizeAngle(x_diff(3));
+
+      P_ += weights_(i)*x_diff*x_diff.transpose();
+    }
+  }
 }
 
 /**
