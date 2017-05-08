@@ -100,32 +100,12 @@ void UKF::GenerateSigmaPoints() {
   }
 }
 
-/**
- * @param {MeasurementPackage} meas_package The latest measurement data of
- * either radar or laser.
- */
-void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
-  /**
-  TODO:
-
-  Complete this function! Make sure you switch between lidar and radar
-  measurements.
-  */
-}
-
-/**
- * Predicts sigma points, the state, and the state covariance matrix.
- * @param {double} delta_t the change in time (in seconds) between the last
- * measurement and this one.
- */
-void UKF::Prediction(double delta_t) {
-  double delta_t2 = delta_t*delta_t;
-
+void UKF::PredictSigmaPoints(double const delta_t) {
   double p_x, p_y, v, psi, psi_dot, a, yawdd;
   VectorXd predicted_sigma = VectorXd(n_x_);
-  Xsig_pred_ = MatrixXd(n_x_, n_sigma);
 
-  GenerateSigmaPoints();
+  Xsig_pred_ = MatrixXd(n_x_, n_sigma);
+  double delta_t2 = delta_t*delta_t;
 
   for (int i = 0; i < 2 * n_aug_ + 1; ++i) {
     p_x = Xsig_aug.col(0, i);
@@ -154,23 +134,48 @@ void UKF::Prediction(double delta_t) {
     }
     //write predicted sigma points into right column
     Xsig_pred_.col(i) = predicted_sigma;
-
-    //predict state mean
-    x_.fill(0.0);
-    for (int i = 0; i < n_sigma; ++i) {
-      x_ += weights_(i)*Xsig_pred_.col(i);
-    }
-    //predict state covariance matrix
-    P_.fill(0.0);
-    for (int i = 0; i < n_sigma; ++i) {
-      // state difference
-      VectorXd x_diff = Xsig_pred_.col(i) - x_;
-      //angle normalization
-      x_diff(3) = NormalizeAngle(x_diff(3));
-
-      P_ += weights_(i)*x_diff*x_diff.transpose();
-    }
   }
+}
+
+/**
+ * @param {MeasurementPackage} meas_package The latest measurement data of
+ * either radar or laser.
+ */
+void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
+  /**
+  TODO:
+
+  Complete this function! Make sure you switch between lidar and radar
+  measurements.
+  */
+}
+
+/**
+ * Predicts sigma points, the state, and the state covariance matrix.
+ * @param {double} delta_t the change in time (in seconds) between the last
+ * measurement and this one.
+ */
+void UKF::Prediction(double delta_t) {
+  GenerateSigmaPoints();
+
+  PredictSigmaPoints(delta_t);
+
+  //predict state mean
+  x_.fill(0.0);
+  for (int i = 0; i < n_sigma; ++i) {
+    x_ += weights_(i)*Xsig_pred_.col(i);
+  }
+  //predict state covariance matrix
+  P_.fill(0.0);
+  for (int i = 0; i < n_sigma; ++i) {
+    // state difference
+    VectorXd x_diff = Xsig_pred_.col(i) - x_;
+    //angle normalization
+    x_diff(3) = NormalizeAngle(x_diff(3));
+
+    P_ += weights_(i)*x_diff*x_diff.transpose();
+  }
+  
 }
 
 /**

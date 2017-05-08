@@ -30,11 +30,14 @@ private:
   ///* matrix to keep sigma points
   MatrixXd Xsig_aug;
 
+  ///* set angle in a range (-pi, pi)
+  double NormalizeAngle(double const angle) const;
+
   ///* generate sigma points
   void GenerateSigmaPoints();
 
-  ///* set angle in a range (-pi, pi)
-  double NormalizeAngle(double const angle) const;
+  ///* predict sigma points
+  void PredictSigmaPoints(double const delta_t);
 
 public:
 
