@@ -12,6 +12,23 @@ using Eigen::MatrixXd;
 using Eigen::VectorXd;
 
 class UKF {
+private:
+  // ?? make local
+
+  ///* count of sigma points
+  int n_sigma;
+
+  ///* keep augmented state vector
+  VectorXd x_aug;
+
+  ///* keep augmented state covariance matrix
+  MatrixXd P_aug;
+
+  ///* matrix to keep sigma points
+  MatrixXd Xsig_aug;
+
+  void GenerateSigmaPoints();
+
 public:
 
   ///* initially set to false, set to true in first call of ProcessMeasurement
