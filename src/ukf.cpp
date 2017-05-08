@@ -105,15 +105,43 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
  * measurement and this one.
  */
 void UKF::Prediction(double delta_t) {
-  /**
-  TODO:
+  double delta_t2 = delta_t*delta_t;
+  Xsig_pred_ = MatrixXd(n_x_, n_sigma);
+  double p_x, p_y, v, psi, psi_dot, a, yawdd;
+  VectorXd predicted_sigma = VectorXd(n_x_);
 
-  Complete this function! Estimate the object's location. Modify the state
-  vector, x_. Predict sigma points, the state, and the state covariance matrix.
-  */
-  // predict sigma points
-  // predict the state
-  // predict covariance matrix
+  GenerateSigmaPoints();
+
+  for (int i = 0; i < 2 * n_aug_ + 1; ++i) {
+    p_x = Xsig_aug.col(0, i);
+    p_y = Xsig_aug.col(1, i);
+    v = Xsig_aug.col(2, i);
+    psi = Xsig_aug.col(3, i);
+    psi_dot = Xsig_aug.col(4, i);
+    a = Xsig_aug.col(5, i);
+    yawdd = Xsig_aug.col(6, i);
+    //predict sigma points
+    if (std::abs(psi_dot) > negligible) {
+      predicted_sigma(0) = p_x + v*(sin(psi + psi_dot*delta_t) - sin(psi)) / psi_dot
+        + delta_t2*cos(psi)*a / 2;
+      predicted_sigma(1) = p_y + v*(-cos(psi + psi_dot*delta_t) + cos(psi)) / psi_dot
+        + delta_t2*sin(psi)*a / 2;
+      predicted_sigma(2) = v + delta_t*a;
+      predicted_sigma(3) = psi + psi_dot*delta_t + delta_t2*yawdd / 2;
+      predicted_sigma(4) = psi_dot + delta_t*yawdd;
+    }
+    else { //avoid division by zero
+      predicted_sigma(0) = p_x + v*cos(psi)*delta_t + delta_t2*cos(psi)*a / 2;
+      predicted_sigma(1) = p_y + v*sin(psi)*delta_t + delta_t2*sin(psi)*a / 2;
+      predicted_sigma(2) = v + delta_t*a;
+      predicted_sigma(3) = psi + psi_dot*delta_t + delta_t2*a / 2;
+      predicted_sigma(4) = psi_dot + delta_t*yawdd;
+    }
+    //write predicted sigma points into right column
+    Xsig_pred_.col(i) = predicted_sigma;
+
+    // predict the state
+    // predict covariance matrix
 }
 
 /**

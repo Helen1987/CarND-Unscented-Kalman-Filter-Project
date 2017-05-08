@@ -15,6 +15,9 @@ class UKF {
 private:
   // ?? make local
 
+  ///* to check zero value
+  int const negligible = 0.00001;
+
   ///* count of sigma points
   int n_sigma;
 
