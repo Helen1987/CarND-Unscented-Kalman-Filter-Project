@@ -197,7 +197,59 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
   measurements.
   */
 
-  
+  if (!use_laser_ && meas_package.sensor_type_ == MeasurementPackage::LASER)
+    return;
+  if (!use_radar_ && meas_package.sensor_type_ == MeasurementPackage::RADAR)
+    return;
+
+  if (!is_initialized_) {
+    // ignore zero-values measurements and
+    // wait for sufficient measurement
+    if (std::abs(pow(meas_package.raw_measurements_(0), 2) + pow(meas_package.raw_measurements_(1), 2)) < negligible)
+      return;
+
+    if (meas_package.sensor_type_ == MeasurementPackage::RADAR) {
+      // Convert radar from polar to cartesian coordinates and initialize state.
+      double ro = meas_package.raw_measurements_(0);
+      double phi = meas_package.raw_measurements_(1);
+      double ro_dot = meas_package.raw_measurements_(2);
+
+      x_ << ro*cos(phi), ro*sin(phi), ro_dot, phi, 0;
+
+      P_ << 1, 0, 0, 0, 0,
+            0, 1, 0, 0, 0,
+            0, 0, 1, 0, 0,
+            0, 0, 0, 1, 0,
+            0, 0, 0, 0, 1000;
+    }
+    else if (meas_package.sensor_type_ == MeasurementPackage::LASER) {
+      x_ << meas_package.raw_measurements_(0), meas_package.raw_measurements_(1), 0, 0, 0;
+
+      P_ << 1, 0, 0, 0, 0,
+            0, 1, 0, 0, 0,
+            0, 0, 1000, 0, 0,
+            0, 0, 0, 1000, 0,
+            0, 0, 0, 0, 1000;
+    }
+
+    previous_timestamp_ = meas_package.timestamp_;
+    is_initialized_ = true;
+    return;
+  }
+
+  double delta_t = (meas_package.timestamp_ - previous_timestamp_) / 1000000.0;
+  previous_timestamp_ = meas_package.timestamp_;
+
+  if (delta_t > negligible) {
+    Prediction(delta_t);
+  }
+
+  if (meas_package.sensor_type_ == MeasurementPackage::LASER) {
+    UpdateLidar(meas_package);
+  }
+  else {
+    UpdateRadar(meas_package);
+  }
 }
 
 /**
