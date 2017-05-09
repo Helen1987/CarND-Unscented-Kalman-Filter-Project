@@ -30,14 +30,26 @@ private:
   ///* matrix to keep sigma points
   MatrixXd Xsig_aug;
 
+  ///* sigma points in measurement space
+  MatrixXd Zsig;
+
+  ///* mean predicted measurement
+  VectorXd z_pred;
+
+  ///* measurement covariance matrix S
+  MatrixXd S;
+
   ///* set angle in a range (-pi, pi)
-  double NormalizeAngle(double const angle) const;
+  double NormalizeAngle(double angle) const;
 
   ///* generate sigma points
   void GenerateSigmaPoints();
 
   ///* predict sigma points
-  void PredictSigmaPoints(double const delta_t);
+  void PredictSigmaPoints(double delta_t);
+
+  ///* update state vector and covariance matrix according to the measurements
+  void UpdateState(const VectorXd &z);
 
 public:
 

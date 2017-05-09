@@ -69,7 +69,7 @@ UKF::UKF() {
 
 UKF::~UKF() {}
 
-double UKF::NormalizeAngle(double const angle) const {
+double UKF::NormalizeAngle(double angle) const {
   double new_angle = angle;
   /*
   while (new_angle > M_PI) new_angle -= 2.*M_PI;
@@ -103,7 +103,7 @@ void UKF::GenerateSigmaPoints() {
   }
 }
 
-void UKF::PredictSigmaPoints(double const delta_t) {
+void UKF::PredictSigmaPoints(double delta_t) {
   double p_x, p_y, v, psi, psi_dot, a, yawdd;
   VectorXd predicted_sigma = VectorXd(n_x_);
 
@@ -140,6 +140,34 @@ void UKF::PredictSigmaPoints(double const delta_t) {
   }
 }
 
+void UKF::UpdateState(const VectorXd &z) {
+  VectorXd z_diff, x_diff;
+
+  MatrixXd Tc = MatrixXd(n_x_, z.size());
+
+  //calculate cross correlation matrix
+  for (int i = 0; i < n_sigma; ++i) {
+    z_diff = Zsig.col(i) - z_pred;
+    //angle normalization
+    z_diff(1) = NormalizeAngle(z_diff(1));
+
+    // state difference
+    x_diff = Xsig_pred_.col(i) - x_;
+    //angle normalization
+    x_diff(1) = NormalizeAngle(x_diff(1));
+
+    Tc = Tc + weights_(i) * x_diff * z_diff.transpose();
+  }
+  //calculate Kalman gain K;
+  MatrixXd K = Tc*S.inverse();
+  //update state mean and covariance matrix
+  VectorXd z_diff = z - z_pred;
+  z_diff(1) = NormalizeAngle(z_diff(1));
+
+  x += K*z_diff;
+  P -= K*S*K.transpose();
+}
+
 /**
  * @param {MeasurementPackage} meas_package The latest measurement data of
  * either radar or laser.
@@ -151,6 +179,8 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
   Complete this function! Make sure you switch between lidar and radar
   measurements.
   */
+
+  UpdateState(meas_package.raw_measurements_);
 }
 
 /**
@@ -213,13 +243,13 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   int const n_z = 3;
 
   //create matrix for sigma points in measurement space
-  MatrixXd Zsig = MatrixXd(n_z, n_sigma);
+  Zsig = MatrixXd(n_z, n_sigma);
 
   //mean predicted measurement
-  VectorXd z_pred = VectorXd(n_z);
+  z_pred = VectorXd(n_z);
 
   //measurement covariance matrix S
-  MatrixXd S = MatrixXd(n_z, n_z);
+  S = MatrixXd(n_z, n_z);
 
   MatrixXd R = MatrixXd(n_z, n_z);
   R <<  std_radr_*std_radr_,0,                      0,
