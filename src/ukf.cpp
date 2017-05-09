@@ -71,9 +71,12 @@ UKF::~UKF() {}
 
 double UKF::NormalizeAngle(double const angle) const {
   double new_angle = angle;
+  /*
   while (new_angle > M_PI) new_angle -= 2.*M_PI;
   while (new_angle <-M_PI) new_angle += 2.*M_PI;
   return new_angle;
+  */
+  return fmod(angle + M_PI, 2 * M_PI) - M_PI;
 }
 
 void UKF::GenerateSigmaPoints() {
@@ -206,4 +209,49 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
 
   You'll also need to calculate the radar NIS.
   */
+  //set measurement dimension, radar can measure r, phi, and r_dot
+  int const n_z = 3;
+
+  //create matrix for sigma points in measurement space
+  MatrixXd Zsig = MatrixXd(n_z, n_sigma);
+
+  //mean predicted measurement
+  VectorXd z_pred = VectorXd(n_z);
+
+  //measurement covariance matrix S
+  MatrixXd S = MatrixXd(n_z, n_z);
+
+  MatrixXd R = MatrixXd(n_z, n_z);
+  R <<  std_radr_*std_radr_,0,                      0,
+        0,                  std_radphi_*std_radphi_,0,
+        0,                  0,                      std_radrd_*std_radrd_;
+
+  double p_x, p_y, v, psi, psi_dot;
+  //transform sigma points into measurement space
+  for (int i = 0; i < n_sigma; ++i) {
+    p_x = Xsig_pred_(0, i);
+    p_y = Xsig_pred_(1, i);
+    v = Xsig_pred_(2, i);
+    psi = Xsig_pred_(3, i);
+    psi_dot = Xsig_pred_(4, i);
+
+    double rho = sqrt(p_x*p_x + p_y*p_y);
+    Zsig(0, i) = rho;
+    // phi
+    Zsig(1, i) = atan2(p_y, p_x);
+    // rho_dot
+    Zsig(2, i) = (p_x*cos(psi)*v + p_y*sin(psi)*v) / (std::abs(rho) > negligible ? rho : negligible);
+  }
+  //calculate mean predicted measurement
+  for (int i = 0; i < n_sigma; ++i) {
+    z_pred += weights_(i)*Zsig.col(i);
+  }
+  //calculate measurement covariance matrix S
+  for (int i = 0; i < n_sigma; ++i) {
+    VectorXd diff = Zsig.col(i) - z_pred;
+    diff(1) = NormalizeAngle(diff(1));
+
+    S += weights_(i)*diff*diff.transpose();
+  }
+  S += R;
 }
