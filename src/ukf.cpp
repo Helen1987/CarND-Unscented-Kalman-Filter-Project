@@ -140,9 +140,26 @@ void UKF::PredictSigmaPoints(double delta_t) {
   }
 }
 
-void UKF::UpdateState(const VectorXd &z) {
-  VectorXd z_diff, x_diff;
+void UKF::UpdateState(const VectorXd &z, const MatrixXd &Zsig, const MatrixXd &R) {
+  //mean predicted measurement
+  VectorXd z_pred = VectorXd(z.size());
+  //calculate mean predicted measurement
+  for (int i = 0; i < n_sigma; ++i) {
+    z_pred += weights_(i)*Zsig.col(i);
+  }
 
+  //measurement covariance matrix S
+  MatrixXd S = MatrixXd(z.size(), z.size());
+  //calculate measurement covariance matrix S
+  for (int i = 0; i < n_sigma; ++i) {
+    VectorXd diff = Zsig.col(i) - z_pred;
+    diff(1) = NormalizeAngle(diff(1));
+
+    S += weights_(i)*diff*diff.transpose();
+  }
+  S += R;
+
+  VectorXd z_diff, x_diff;
   MatrixXd Tc = MatrixXd(n_x_, z.size());
 
   //calculate cross correlation matrix
@@ -161,7 +178,7 @@ void UKF::UpdateState(const VectorXd &z) {
   //calculate Kalman gain K;
   MatrixXd K = Tc*S.inverse();
   //update state mean and covariance matrix
-  VectorXd z_diff = z - z_pred;
+  z_diff = z - z_pred;
   z_diff(1) = NormalizeAngle(z_diff(1));
 
   x += K*z_diff;
@@ -180,7 +197,7 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
   measurements.
   */
 
-  UpdateState(meas_package.raw_measurements_);
+  
 }
 
 /**
@@ -219,11 +236,20 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
   /**
   TODO:
 
-  Complete this function! Use lidar data to update the belief about the object's
-  position. Modify the state vector, x_, and covariance, P_.
-
   You'll also need to calculate the lidar NIS.
   */
+  int const n_z = 2;
+
+  //create matrix for sigma points in measurement space
+  MatrixXd Zsig = MatrixXd(n_z, n_sigma);
+
+  MatrixXd R = MatrixXd(n_z, n_z);
+  R <<  std_laspx_*std_laspx_,0,
+        0,                    std_laspy_*std_laspy_;
+
+  Zsig = Xsig_pred_.topRows(n_z);
+
+  UpdateState(meas_package.raw_measurements_, Zsig, R);
 }
 
 /**
@@ -234,22 +260,16 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   /**
   TODO:
 
-  Complete this function! Use radar data to update the belief about the object's
-  position. Modify the state vector, x_, and covariance, P_.
-
   You'll also need to calculate the radar NIS.
   */
   //set measurement dimension, radar can measure r, phi, and r_dot
   int const n_z = 3;
 
   //create matrix for sigma points in measurement space
-  Zsig = MatrixXd(n_z, n_sigma);
+  MatrixXd Zsig = MatrixXd(n_z, n_sigma);
 
   //mean predicted measurement
-  z_pred = VectorXd(n_z);
-
-  //measurement covariance matrix S
-  S = MatrixXd(n_z, n_z);
+  VectorXd z_pred = VectorXd(n_z);
 
   MatrixXd R = MatrixXd(n_z, n_z);
   R <<  std_radr_*std_radr_,0,                      0,
@@ -272,16 +292,6 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
     // rho_dot
     Zsig(2, i) = (p_x*cos(psi)*v + p_y*sin(psi)*v) / (std::abs(rho) > negligible ? rho : negligible);
   }
-  //calculate mean predicted measurement
-  for (int i = 0; i < n_sigma; ++i) {
-    z_pred += weights_(i)*Zsig.col(i);
-  }
-  //calculate measurement covariance matrix S
-  for (int i = 0; i < n_sigma; ++i) {
-    VectorXd diff = Zsig.col(i) - z_pred;
-    diff(1) = NormalizeAngle(diff(1));
 
-    S += weights_(i)*diff*diff.transpose();
-  }
-  S += R;
+  UpdateState(meas_package.raw_measurements_, Zsig, R);
 }
