@@ -79,8 +79,11 @@ double UKF::NormalizeAngle(double angle) const {
   return fmod(angle + M_PI, 2 * M_PI) - M_PI;
 }
 
-void UKF::GenerateSigmaPoints() {
-  //create augmented mean state
+MatrixXd UKF::GenerateSigmaPoints() {
+  VectorXd x_aug = VectorXd(n_aug_);
+  MatrixXd P_aug = MatrixXd(n_aug_, n_aug_);
+
+  // fill augmented mean state
   x_aug.head(n_x_) = x_;
   x_aug(5) = 0;
   x_aug(6) = 0;
@@ -95,29 +98,34 @@ void UKF::GenerateSigmaPoints() {
   MatrixXd L = P_aug.llt().matrixL();
 
   //create augmented sigma points
+  MatrixXd Xsig_aug = MatrixXd(n_aug_, n_sigma);
+  Xsig_aug.fill(0.0);
   Xsig_aug.col(0) = x_aug;
-  for (int i = 0; i< n_sigma; i++)
+  for (int i = 0; i < n_aug_; i++)
   {
     Xsig_aug.col(i + 1) = x_aug + sqrt(lambda_ + n_aug_) * L.col(i);
     Xsig_aug.col(i + 1 + n_aug_) = x_aug - sqrt(lambda_ + n_aug_) * L.col(i);
   }
+  return Xsig_aug;
 }
 
 void UKF::PredictSigmaPoints(double delta_t) {
+  MatrixXd Xsig_aug = GenerateSigmaPoints();
+
   double p_x, p_y, v, psi, psi_dot, a, yawdd;
   VectorXd predicted_sigma = VectorXd(n_x_);
 
   Xsig_pred_ = MatrixXd(n_x_, n_sigma);
   double delta_t2 = delta_t*delta_t;
 
-  for (int i = 0; i < 2 * n_aug_ + 1; ++i) {
-    p_x = Xsig_aug.col(0, i);
-    p_y = Xsig_aug.col(1, i);
-    v = Xsig_aug.col(2, i);
-    psi = Xsig_aug.col(3, i);
-    psi_dot = Xsig_aug.col(4, i);
-    a = Xsig_aug.col(5, i);
-    yawdd = Xsig_aug.col(6, i);
+  for (int i = 0; i < n_sigma; ++i) {
+    p_x = Xsig_aug(0, i);
+    p_y = Xsig_aug(1, i);
+    v = Xsig_aug(2, i);
+    psi = Xsig_aug(3, i);
+    psi_dot = Xsig_aug(4, i);
+    a = Xsig_aug(5, i);
+    yawdd = Xsig_aug(6, i);
     //predict sigma points
     if (std::abs(psi_dot) > negligible) {
       predicted_sigma(0) = p_x + v*(sin(psi + psi_dot*delta_t) - sin(psi)) / psi_dot
@@ -181,8 +189,8 @@ void UKF::UpdateState(const VectorXd &z, const MatrixXd &Zsig, const MatrixXd &R
   z_diff = z - z_pred;
   z_diff(1) = NormalizeAngle(z_diff(1));
 
-  x += K*z_diff;
-  P -= K*S*K.transpose();
+  x_ += K*z_diff;
+  P_ -= K*S*K.transpose();
 }
 
 /**
@@ -258,8 +266,6 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
  * measurement and this one.
  */
 void UKF::Prediction(double delta_t) {
-  GenerateSigmaPoints();
-
   PredictSigmaPoints(delta_t);
 
   //predict state mean

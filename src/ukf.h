@@ -16,25 +16,16 @@ private:
   // ?? make local
 
   ///* to check zero value
-  int const negligible = 0.00001;
+  double const negligible = 0.00001;
 
   ///* count of sigma points
   int n_sigma;
-
-  ///* keep augmented state vector
-  VectorXd x_aug;
-
-  ///* keep augmented state covariance matrix
-  MatrixXd P_aug;
-
-  ///* matrix to keep sigma points
-  MatrixXd Xsig_aug;
 
   ///* set angle in a range (-pi, pi)
   double NormalizeAngle(double angle) const;
 
   ///* generate sigma points
-  void GenerateSigmaPoints();
+  MatrixXd GenerateSigmaPoints();
 
   ///* predict sigma points
   void PredictSigmaPoints(double delta_t);
