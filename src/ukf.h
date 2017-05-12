@@ -16,7 +16,7 @@ private:
   // ?? make local
 
   ///* to check zero value
-  double const negligible = 0.00001;
+  double const negligible = 0.001;
 
   ///* count of sigma points
   int n_sigma;
@@ -31,7 +31,7 @@ private:
   void PredictSigmaPoints(double delta_t);
 
   ///* update state vector and covariance matrix according to the measurements
-  void UpdateState(const VectorXd &z, const MatrixXd &Zsig, const MatrixXd &R);
+  double UpdateState(const VectorXd &z, const MatrixXd &Zsig, const MatrixXd &R);
 
 public:
 

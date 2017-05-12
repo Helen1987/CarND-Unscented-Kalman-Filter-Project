@@ -9,4 +9,6 @@ set(sources
    src/main.cpp
    src/tools.cpp)
 
+set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR})
+
 add_executable(UnscentedKF ${sources})
