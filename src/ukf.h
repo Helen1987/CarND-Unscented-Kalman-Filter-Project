@@ -31,7 +31,7 @@ private:
   void PredictSigmaPoints(double delta_t);
 
   ///* update state vector and covariance matrix according to the measurements
-  double UpdateState(const VectorXd &z, const MatrixXd &Zsig, const MatrixXd &R);
+  void UpdateState(const VectorXd &z, const MatrixXd &Zsig, const MatrixXd &R);
 
 public:
 

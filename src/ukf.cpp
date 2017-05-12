@@ -152,7 +152,7 @@ void UKF::PredictSigmaPoints(double delta_t) {
   }
 }
 
-double UKF::UpdateState(const VectorXd &z, const MatrixXd &Zsig, const MatrixXd &R) {
+void UKF::UpdateState(const VectorXd &z, const MatrixXd &Zsig, const MatrixXd &R) {
   //mean predicted measurement
   VectorXd z_pred = VectorXd(z.size());
   z_pred.fill(0.0);
@@ -198,7 +198,7 @@ double UKF::UpdateState(const VectorXd &z, const MatrixXd &Zsig, const MatrixXd 
 
   x_ += K*z_diff;
   P_ -= K*S*K.transpose();
-  return (z_diff.transpose()*S.inverse()*z_diff); // NIS
+  NIS_radar_ = z_diff.transpose()*S.inverse()*z_diff;
 }
 
 /**
@@ -291,7 +291,6 @@ void UKF::Prediction(double delta_t) {
 
     P_ += weights_(i)*x_diff*x_diff.transpose();
   }
-  
 }
 
 /**
@@ -299,23 +298,29 @@ void UKF::Prediction(double delta_t) {
  * @param {MeasurementPackage} meas_package
  */
 void UKF::UpdateLidar(MeasurementPackage meas_package) {
-  /**
-  TODO:
-
-  You'll also need to calculate the lidar NIS.
-  */
   int const n_z = 2;
-
-  //create matrix for sigma points in measurement space
-  MatrixXd Zsig = MatrixXd(n_z, n_sigma);
 
   MatrixXd R = MatrixXd(n_z, n_z);
   R <<  std_laspx_*std_laspx_,0,
         0,                    std_laspy_*std_laspy_;
 
-  Zsig = Xsig_pred_.topRows(n_z);
+  MatrixXd H_laser_ = MatrixXd(n_z, n_x_);
+  H_laser_ << 1, 0, 0, 0, 0,
+              0, 1, 0, 0, 0;
 
-  NIS_laser_ = UpdateState(meas_package.raw_measurements_, Zsig, R);
+  VectorXd y = meas_package.raw_measurements_ - H_laser_ * x_;
+  MatrixXd Ht = H_laser_.transpose();
+  MatrixXd PHt = P_ * Ht;
+  MatrixXd S = H_laser_ * PHt + R;
+  MatrixXd Si = S.inverse();
+  MatrixXd K = PHt * Si;
+
+  //new state
+  x_ = x_ + (K * y);
+  long x_size = x_.size();
+  P_ = (MatrixXd::Identity(x_size, x_size) - K * H_laser_) * P_;
+
+  NIS_laser_ = (y.transpose()*Si*y);
 }
 
 /**
@@ -323,11 +328,6 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
  * @param {MeasurementPackage} meas_package
  */
 void UKF::UpdateRadar(MeasurementPackage meas_package) {
-  /**
-  TODO:
-
-  You'll also need to calculate the radar NIS.
-  */
   //set measurement dimension, radar can measure r, phi, and r_dot
   int const n_z = 3;
 
@@ -356,5 +356,5 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
     Zsig(2, i) = (p_x*cos(psi)*v + p_y*sin(psi)*v) / (std::abs(rho) > negligible ? rho : negligible);
   }
 
-  NIS_radar_ = UpdateState(meas_package.raw_measurements_, Zsig, R);
+  UpdateState(meas_package.raw_measurements_, Zsig, R);
 }
