@@ -54,6 +54,9 @@ UKF::UKF() {
   */
   is_initialized_ = false;
 
+  NIS_laser_ = 0;
+  NIS_radar_ = 0;
+
   n_x_ = 5;
   n_aug_ = 7;
   n_sigma = 2 * n_aug_ + 1;
