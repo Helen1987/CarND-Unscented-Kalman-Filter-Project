@@ -213,11 +213,6 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
   measurements.
   */
 
-  if (!use_laser_ && meas_package.sensor_type_ == MeasurementPackage::LASER)
-    return;
-  if (!use_radar_ && meas_package.sensor_type_ == MeasurementPackage::RADAR)
-    return;
-
   if (!is_initialized_) {
     // ignore zero-values measurements and
     // wait for sufficient measurement
@@ -252,6 +247,11 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
     is_initialized_ = true;
     return;
   }
+
+  if (!use_laser_ && meas_package.sensor_type_ == MeasurementPackage::LASER)
+    return;
+  if (!use_radar_ && meas_package.sensor_type_ == MeasurementPackage::RADAR)
+    return;
 
   double delta_t = (meas_package.timestamp_ - previous_timestamp_) / 1000000.0;
   previous_timestamp_ = meas_package.timestamp_;
