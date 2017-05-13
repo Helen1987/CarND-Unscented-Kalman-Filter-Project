@@ -25,17 +25,17 @@ UKF::UKF() {
 
   // initial covariance matrix
   P_ = MatrixXd(5, 5);
-  P_ << 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0;
+  P_ << 1, 0, 0, 0, 0,
+        0, 1, 0, 0, 0,
+        0, 0, 1, 0, 0,
+        0, 0, 0, 1, 0,
+        0, 0, 0, 0, 1;
 
   // Process noise standard deviation longitudinal acceleration in m/s^2
-  std_a_ = 4.5;
+  std_a_ = 0.7;
 
   // Process noise standard deviation yaw acceleration in rad/s^2
-  std_yawdd_ = 10.0;
+  std_yawdd_ = 0.5;
 
   // Laser measurement noise standard deviation position1 in m
   std_laspx_ = 0.15;
@@ -89,6 +89,7 @@ UKF::~UKF() {}
 
 double UKF::NormalizeAngle(double angle) const {
   return fmod(angle + M_PI, 2 * M_PI) - M_PI;
+  //return std::abs(result) > negligible ? result : 0;
 }
 
 MatrixXd UKF::GenerateSigmaPoints() {
@@ -213,13 +214,6 @@ void UKF::UpdateState(const VectorXd &z, const MatrixXd &Zsig) {
  * either radar or laser.
  */
 void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
-  /**
-  TODO:
-
-  Complete this function! Make sure you switch between lidar and radar
-  measurements.
-  */
-
   if (!is_initialized_) {
     // ignore zero-values measurements and
     // wait for sufficient measurement
@@ -238,16 +232,16 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
             0, 1, 0, 0, 0,
             0, 0, 1, 0, 0,
             0, 0, 0, 1, 0,
-            0, 0, 0, 0, 10;
+            0, 0, 0, 0, 3;
     }
     else if (meas_package.sensor_type_ == MeasurementPackage::LASER) {
       x_ << meas_package.raw_measurements_(0), meas_package.raw_measurements_(1), 0, 0, 0;
 
       P_ << 1, 0, 0, 0, 0,
             0, 1, 0, 0, 0,
-            0, 0, 10, 0, 0,
-            0, 0, 0, 10, 0,
-            0, 0, 0, 0, 10;
+            0, 0, 3, 0, 0,
+            0, 0, 0, 3, 0,
+            0, 0, 0, 0, 3;
     }
 
     previous_timestamp_ = meas_package.timestamp_;
@@ -266,14 +260,15 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
   if (delta_t > negligible) {
     Prediction(delta_t);
   }
+  else {
+    PredictSigmaPoints(delta_t);
+  }
+
 
   if (meas_package.sensor_type_ == MeasurementPackage::LASER) {
     UpdateLidar(meas_package);
   }
   else {
-    if (Xsig_pred_.size() == 0) { // if dt is too small right after init
-      PredictSigmaPoints(delta_t);
-    }
     UpdateRadar(meas_package);
   }
 }
@@ -334,8 +329,6 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   //create matrix for sigma points in measurement space
   MatrixXd Zsig = MatrixXd(n_z, n_sigma);
 
- 
-
   double p_x, p_y, v, psi, psi_dot;
   //transform sigma points into measurement space
   for (int i = 0; i < n_sigma; ++i) {
@@ -348,7 +341,7 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
     double rho = sqrt(p_x*p_x + p_y*p_y);
     Zsig(0, i) = rho;
     // phi
-    Zsig(1, i) = atan2(p_y, p_x);
+    Zsig(1, i) = p_x == 0 ? 0 : atan2(p_y, p_x);
     // rho_dot
     Zsig(2, i) = (p_x*cos(psi)*v + p_y*sin(psi)*v) / (std::abs(rho) > negligible ? rho : negligible);
   }
