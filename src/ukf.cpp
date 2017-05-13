@@ -21,9 +21,15 @@ UKF::UKF() {
 
   // initial state vector
   x_ = VectorXd(5);
+  x_ << 0, 0, 0, 0, 0;
 
   // initial covariance matrix
   P_ = MatrixXd(5, 5);
+  P_ << 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0;
 
   // Process noise standard deviation longitudinal acceleration in m/s^2
   std_a_ = 4.5;
@@ -64,17 +70,24 @@ UKF::UKF() {
   for (int i = 1; i < n_sigma; ++i) {
     weights_(i) = 0.5 / (lambda_ + n_aug_);
   }
+
+  R_laser_ = MatrixXd(2, 2);
+  R_laser_ << std_laspx_*std_laspx_, 0,
+              0, std_laspy_*std_laspy_;
+
+  R_radar_ = MatrixXd(3, 3);
+  R_radar_ << std_radr_*std_radr_, 0, 0,
+              0, std_radphi_*std_radphi_, 0,
+              0, 0, std_radrd_*std_radrd_;
+
+  H_laser_ = MatrixXd(2, n_x_);
+  H_laser_ << 1, 0, 0, 0, 0,
+              0, 1, 0, 0, 0;
 }
 
 UKF::~UKF() {}
 
 double UKF::NormalizeAngle(double angle) const {
-  double new_angle = angle;
-  /*
-  while (new_angle > M_PI) new_angle -= 2.*M_PI;
-  while (new_angle <-M_PI) new_angle += 2.*M_PI;
-  return new_angle;
-  */
   return fmod(angle + M_PI, 2 * M_PI) - M_PI;
 }
 
@@ -146,7 +159,7 @@ void UKF::PredictSigmaPoints(double delta_t) {
   }
 }
 
-void UKF::UpdateState(const VectorXd &z, const MatrixXd &Zsig, const MatrixXd &R) {
+void UKF::UpdateState(const VectorXd &z, const MatrixXd &Zsig) {
   //mean predicted measurement
   VectorXd z_pred = VectorXd(z.size());
   z_pred.fill(0.0);
@@ -165,7 +178,7 @@ void UKF::UpdateState(const VectorXd &z, const MatrixXd &Zsig, const MatrixXd &R
 
     S += weights_(i)*diff*diff.transpose();
   }
-  S += R;
+  S += R_radar_;
 
   VectorXd z_diff, x_diff;
   MatrixXd Tc = MatrixXd(n_x_, z.size());
@@ -295,20 +308,10 @@ void UKF::Prediction(double delta_t) {
  * @param {MeasurementPackage} meas_package
  */
 void UKF::UpdateLidar(MeasurementPackage meas_package) {
-  int const n_z = 2;
-
-  MatrixXd R = MatrixXd(n_z, n_z);
-  R <<  std_laspx_*std_laspx_,0,
-        0,                    std_laspy_*std_laspy_;
-
-  MatrixXd H_laser_ = MatrixXd(n_z, n_x_);
-  H_laser_ << 1, 0, 0, 0, 0,
-              0, 1, 0, 0, 0;
-
   VectorXd y = meas_package.raw_measurements_ - H_laser_ * x_;
   MatrixXd Ht = H_laser_.transpose();
   MatrixXd PHt = P_ * Ht;
-  MatrixXd S = H_laser_ * PHt + R;
+  MatrixXd S = H_laser_ * PHt + R_laser_;
   MatrixXd Si = S.inverse();
   MatrixXd K = PHt * Si;
 
@@ -331,10 +334,7 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   //create matrix for sigma points in measurement space
   MatrixXd Zsig = MatrixXd(n_z, n_sigma);
 
-  MatrixXd R = MatrixXd(n_z, n_z);
-  R <<  std_radr_*std_radr_,0,                      0,
-        0,                  std_radphi_*std_radphi_,0,
-        0,                  0,                      std_radrd_*std_radrd_;
+ 
 
   double p_x, p_y, v, psi, psi_dot;
   //transform sigma points into measurement space
@@ -353,5 +353,5 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
     Zsig(2, i) = (p_x*cos(psi)*v + p_y*sin(psi)*v) / (std::abs(rho) > negligible ? rho : negligible);
   }
 
-  UpdateState(meas_package.raw_measurements_, Zsig, R);
+  UpdateState(meas_package.raw_measurements_, Zsig);
 }

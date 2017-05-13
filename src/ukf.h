@@ -13,8 +13,6 @@ using Eigen::VectorXd;
 
 class UKF {
 private:
-  // ?? make local
-
   ///* to check zero value
   double const negligible = 0.001;
 
@@ -31,7 +29,7 @@ private:
   void PredictSigmaPoints(double delta_t);
 
   ///* update state vector and covariance matrix according to the measurements
-  void UpdateState(const VectorXd &z, const MatrixXd &Zsig, const MatrixXd &R);
+  void UpdateState(const VectorXd &z, const MatrixXd &Zsig);
 
 public:
 
@@ -53,9 +51,16 @@ public:
   ///* predicted sigma points matrix
   MatrixXd Xsig_pred_;
 
-  ///* time when the state is true, in us
-  long long time_us_;
+  ///* noise covariance matrix for lidar
+  MatrixXd R_laser_;
 
+  ///* noise covariance matrix for radar
+  MatrixXd R_radar_;
+
+  ///* map from state vector to lidar space
+  MatrixXd H_laser_;
+
+  ///* keep time of previous measurement
   long long previous_timestamp_;
 
   ///* Process noise standard deviation longitudinal acceleration in m/s^2
@@ -97,14 +102,8 @@ public:
   ///* the current NIS for laser
   double NIS_laser_;
 
-  /**
-   * Constructor
-   */
   UKF();
 
-  /**
-   * Destructor
-   */
   virtual ~UKF();
 
   /**
