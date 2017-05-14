@@ -67,8 +67,9 @@ UKF::UKF() {
   //set weights
   weights_ = VectorXd(n_sigma);
   weights_(0) = lambda_ / (lambda_ + n_aug_);
+  auto rest_weights = 0.5 / (lambda_ + n_aug_);
   for (int i = 1; i < n_sigma; ++i) {
-    weights_(i) = 0.5 / (lambda_ + n_aug_);
+    weights_(i) = rest_weights;
   }
 
   R_laser_ = MatrixXd(2, 2);
@@ -113,10 +114,12 @@ MatrixXd UKF::GenerateSigmaPoints() {
   //create augmented sigma points
   MatrixXd Xsig_aug = MatrixXd(n_aug_, n_sigma);
   Xsig_aug.col(0) = x_aug;
+  auto coeff = sqrt(lambda_ + n_aug_);
   for (int i = 0; i < n_aug_; i++)
   {
-    Xsig_aug.col(i + 1) = x_aug + sqrt(lambda_ + n_aug_) * L.col(i);
-    Xsig_aug.col(i + 1 + n_aug_) = x_aug - sqrt(lambda_ + n_aug_) * L.col(i);
+    auto variance = coeff * L.col(i);
+    Xsig_aug.col(i + 1) = x_aug + variance;
+    Xsig_aug.col(i + 1 + n_aug_) = x_aug - variance;
   }
   return Xsig_aug;
 }
