@@ -35,7 +35,7 @@ UKF::UKF() {
   std_a_ = 0.7;
 
   // Process noise standard deviation yaw acceleration in rad/s^2
-  std_yawdd_ = 0.5;
+  std_yawdd_ = 1.0;
 
   // Laser measurement noise standard deviation position1 in m
   std_laspx_ = 0.15;
@@ -89,8 +89,8 @@ UKF::UKF() {
 UKF::~UKF() {}
 
 double UKF::NormalizeAngle(double angle) const {
-  return fmod(angle + M_PI, 2 * M_PI) - M_PI;
-  //return std::abs(result) > negligible ? result : 0;
+  auto result = fmod(angle + M_PI, 2 * M_PI) - M_PI;
+  return std::abs(result) > negligible ? result : 0;
 }
 
 MatrixXd UKF::GenerateSigmaPoints() {
@@ -148,14 +148,14 @@ void UKF::PredictSigmaPoints(double delta_t) {
       predicted_sigma(1) = p_y + v*(-cos(psi + psi_dot*delta_t) + cos(psi)) / psi_dot
         + delta_t2*sin(psi)*a / 2;
       predicted_sigma(2) = v + delta_t*a;
-      predicted_sigma(3) = psi + psi_dot*delta_t + delta_t2*yawdd / 2;
+      predicted_sigma(3) = NormalizeAngle(psi + psi_dot*delta_t + delta_t2*yawdd / 2);
       predicted_sigma(4) = psi_dot + delta_t*yawdd;
     }
     else { //avoid division by zero
       predicted_sigma(0) = p_x + v*cos(psi)*delta_t + delta_t2*cos(psi)*a / 2;
       predicted_sigma(1) = p_y + v*sin(psi)*delta_t + delta_t2*sin(psi)*a / 2;
       predicted_sigma(2) = v + delta_t*a;
-      predicted_sigma(3) = psi + psi_dot*delta_t + delta_t2*a / 2;
+      predicted_sigma(3) = NormalizeAngle(psi + psi_dot*delta_t + delta_t2*a / 2);
       predicted_sigma(4) = psi_dot + delta_t*yawdd;
     }
     //write predicted sigma points into right column
@@ -208,6 +208,7 @@ void UKF::UpdateState(const VectorXd &z, const MatrixXd &Zsig) {
   z_diff(1) = NormalizeAngle(z_diff(1));
 
   x_ += K*z_diff;
+  x_(3) = NormalizeAngle(x_(3));
   P_ -= K*S*K.transpose();
   NIS_radar_ = z_diff.transpose()*S.inverse()*z_diff;
 }
@@ -229,12 +230,12 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
       double phi = meas_package.raw_measurements_(1);
       double ro_dot = meas_package.raw_measurements_(2);
 
-      x_ << ro*cos(phi), ro*sin(phi), ro_dot, phi, 0;
+      x_ << ro*cos(phi), ro*sin(phi), ro_dot, 0, 0;
 
       P_ << 1, 0, 0, 0, 0,
             0, 1, 0, 0, 0,
             0, 0, 1, 0, 0,
-            0, 0, 0, 1, 0,
+            0, 0, 0, 3, 0,
             0, 0, 0, 0, 3;
     }
     else if (meas_package.sensor_type_ == MeasurementPackage::LASER) {
@@ -263,7 +264,7 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
   if (delta_t > negligible) {
     Prediction(delta_t);
   }
-  else {
+  else if (meas_package.sensor_type_ == MeasurementPackage::RADAR) {
     PredictSigmaPoints(delta_t);
   }
 
@@ -289,6 +290,7 @@ void UKF::Prediction(double delta_t) {
   for (int i = 0; i < n_sigma; ++i) {
     x_ += weights_(i)*Xsig_pred_.col(i);
   }
+  x_(3) = NormalizeAngle(x_(3));
   //predict state covariance matrix
   P_.fill(0.0);
   for (int i = 0; i < n_sigma; ++i) {
